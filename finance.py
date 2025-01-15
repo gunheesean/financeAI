@@ -87,28 +87,26 @@ def summarize_10k(url):
         return completion.choices[0].message.content
     return "요약 실패: 데이터를 처리할 수 없습니다."
 
+
 # Streamlit UI
 st.title("미국 회사 정보 제공 서비스")
 company_name = st.text_input("회사 이름을 입력하세요 (한글로):")
 
 if st.button("검색"):
     if company_name:
-        st.write(f"사용자 입력 (한글): {company_name}")
+        st.write(f"찾는 회사 이름(한글): {company_name}")
         english_name = translate_name_to_english(company_name)
-        st.write(f"번역된 이름 (영문): {english_name}")
+        st.write(f"찾는 회사 이름(영문): {english_name}")
 
         cik = get_cik(company_name)
         if cik:
-            st.write(f"CIK: {cik}")
-            filing_url = get_10k_url(cik)
-            if filing_url:
-                st.write(f"[10-K 문서 보기]({filing_url})")
-                summary = summarize_10k(filing_url)
-                st.write("### 회사 정보 요약")
-                st.write(summary)
-            else:
-                st.error("10-K 문서를 찾을 수 없습니다.")
+            with st.spinner("10-K 요약 중입니다. 잠시만 기다려주세요..."):
+                summary = summarize_10k(cik)
+            st.success("요약 완료!")
+            st.write("### 회사 정보 요약")
+            st.write(summary)
         else:
             st.error("해당 회사의 CIK를 찾을 수 없습니다.")
     else:
         st.warning("회사 이름을 입력해주세요.")
+
