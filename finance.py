@@ -95,8 +95,6 @@ def summarize_10k(cik):
                             8. Any unique competitive advantages or potential red flags for the company.
                             Ensure the summary is concise and focused on key takeaways.:\n\n{text}"""}
                 ],
-                max_tokens=500,
-                temperature=0.7
             )
 
             return completion.choices[0].message.content
