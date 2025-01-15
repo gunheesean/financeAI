@@ -44,7 +44,11 @@ def get_cik(company_name):
     return None
 
 # Function to get 10-K URL
+# Function to get 10-K URL with validation
 def get_10k_url(cik):
+    if not cik:
+        raise ValueError("CIK is None or invalid. Unable to generate URL.")
+    
     url = f"https://data.sec.gov/submissions/CIK{cik}.json"
     headers = {"User-Agent": "oopoos.sean@gmail.com"}
     response = requests.get(url, headers=headers)
@@ -55,37 +59,51 @@ def get_10k_url(cik):
             if form == "10-K":
                 accession_number = data["filings"]["recent"]["accessionNumber"][i].replace("-", "")
                 primary_document = data["filings"]["recent"]["primaryDocument"][i]
-                return f"https://www.sec.gov/Archives/edgar/data/{cik}/{accession_number}/{primary_document}"
+                filing_url = f"https://www.sec.gov/Archives/edgar/data/{cik}/{accession_number}/{primary_document}"
+                
+                # URL validation
+                if not filing_url.startswith("https://"):
+                    raise ValueError(f"Generated URL is invalid: {filing_url}")
+                
+                return filing_url
+    else:
+        raise ValueError(f"Failed to fetch 10-K submissions. Status code: {response.status_code}")
     return None
 
-# Function to summarize text from 10-K
-def summarize_10k(url):
-    headers = {"User-Agent": "oopoos.sean@gmail.com"}
-    response = requests.get(url, headers=headers)
+# Function to summarize text from 10-K with URL validation
+def summarize_10k(cik):
+    try:
+        url = get_10k_url(cik)
+        headers = {"User-Agent": "oopoos.sean@gmail.com"}
+        response = requests.get(url, headers=headers)
 
-    if response.status_code == 200:
-        soup = BeautifulSoup(response.text, "html.parser")
-        text = soup.get_text(separator="\n")
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, "html.parser")
+            text = soup.get_text(separator="\n")
 
-        completion = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are an assistant that summarizes text in Korean."},
-                {"role": "user", "content": f"""Analyze the following 10-K document. Summarize the most important parts that investors focus on when evaluating a company in Korean. Specifically:
-                        1. Business overview (Item 1), including revenue streams and competitive advantages.
-                        2. Risk factors (Item 1A) and how they may impact the company.
-                        3. Legal proceedings (Item 3) that could affect the company’s operations.
-                        4. Key insights from Management’s Discussion and Analysis (MD&A) (Item 7).
-                        5. Critical financial data (Item 8) from income statements, balance sheets, and cash flow statements.
-                        6. Equity and shareholder-related matters (Item 5), such as dividends or stock buybacks.
-                        7. Information about directors and executive officers (Item 10), including their strategies and governance.
-                        8. Any unique competitive advantages or potential red flags for the company.
-                        Ensure the summary is concise and focused on key takeaways.:\n\n{text}"""}
-            ],
-        )
+            completion = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                        {"role": "user", "content": f"""Analyze the following 10-K document. Summarize the most important parts that investors focus on when evaluating a company in Korean. Specifically:
+                            1. Business overview in Item 1, including revenue streams and competitive advantages.
+                            2. Risk factors in Item 1A and how they may impact the company.
+                            3. Legal proceedings in Item 3 that could affect the company’s operations.
+                            4. Key insights from Management’s Discussion and Analysis in MD&A and Item 7.
+                            5. Critical financial data in Item 8 from income statements, balance sheets, and cash flow statements.
+                            6. Equity and shareholder-related matters in Item 5, such as dividends or stock buybacks.
+                            7. Information about directors and executive officers in Item 10, including their strategies and governance.
+                            8. Any unique competitive advantages or potential red flags for the company.
+                            Ensure the summary is concise and focused on key takeaways.:\n\n{text}"""}
+                ],
+                max_tokens=500,
+                temperature=0.7
+            )
 
-        return completion.choices[0].message.content
-    return "요약 실패: 데이터를 처리할 수 없습니다."
+            return completion.choices[0].message.content
+        else:
+            raise ValueError(f"Failed to fetch 10-K document. Status code: {response.status_code}")
+    except Exception as e:
+        return f"Error occurred while summarizing: {str(e)}"
 
 
 # Streamlit UI
